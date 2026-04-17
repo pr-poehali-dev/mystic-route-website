@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Icon from "@/components/ui/icon";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -385,23 +384,78 @@ function HeroSection() {
 
 // ── Map section ────────────────────────────────────────────────────────────
 
+function createCustomIcon(color: string) {
+  return L.divIcon({
+    className: "",
+    html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};box-shadow:0 0 10px ${color},0 0 20px ${color}55;border:2px solid rgba(255,255,255,0.3);"></div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
+}
+
 function MapSection() {
   const [activePoint, setActivePoint] = useState<number | null>(null);
-  const [flyTo, setFlyTo] = useState<[number, number] | null>(null);
   const [activeRoute, setActiveRoute] = useState<string>("all");
+  const mapRef = useRef<L.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const markersRef = useRef<L.Marker[]>([]);
 
   const filtered = activeRoute === "all"
     ? MAP_POINTS
     : MAP_POINTS.filter((p) => p.route === activeRoute);
 
   const routes = ["all", ...Array.from(new Set(MAP_POINTS.map((p) => p.route)))];
+  const selected = MAP_POINTS.find((p) => p.id === activePoint);
+
+  useEffect(() => {
+    if (!mapContainerRef.current || mapRef.current) return;
+    const map = L.map(mapContainerRef.current, {
+      center: [58, 38],
+      zoom: 4,
+      zoomControl: false,
+      attributionControl: false,
+    });
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png").addTo(map);
+    mapRef.current = map;
+    return () => { map.remove(); mapRef.current = null; };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    markersRef.current.forEach((m) => m.remove());
+    markersRef.current = [];
+    filtered.forEach((point) => {
+      const marker = L.marker(point.coords, { icon: createCustomIcon(point.color) })
+        .addTo(map)
+        .on("click", () => {
+          setActivePoint(point.id);
+          map.flyTo(point.coords, 7, { duration: 1.2 });
+        });
+      const popup = L.popup({
+        className: "dark-popup",
+        offset: [0, -8],
+        closeButton: false,
+      }).setContent(`
+        <div style="background:#0E1015;border:1px solid ${point.color}55;padding:12px 16px;min-width:200px;font-family:'Golos Text',sans-serif;">
+          <p style="font-family:'Cormorant',serif;font-size:18px;color:${point.color};margin:0 0 4px">${point.name}</p>
+          <p style="font-size:11px;color:#9A8A6A;margin:0 0 8px;letter-spacing:0.1em">${point.route}</p>
+          <p style="font-size:12px;color:#B0A080;line-height:1.5;margin:0 0 10px">${point.desc}</p>
+          <div style="display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.06);padding-top:8px">
+            <span style="font-size:12px;color:#9A8A6A">${point.days}</span>
+            <span style="font-size:14px;color:${point.color};font-family:'Cormorant',serif">${point.price}</span>
+          </div>
+        </div>
+      `);
+      marker.bindPopup(popup);
+      markersRef.current.push(marker);
+    });
+  }, [filtered]);
 
   function handleMarkerClick(point: typeof MAP_POINTS[0]) {
     setActivePoint(point.id);
-    setFlyTo(point.coords);
+    mapRef.current?.flyTo(point.coords, 7, { duration: 1.2 });
   }
-
-  const selected = MAP_POINTS.find((p) => p.id === activePoint);
 
   return (
     <section id="map" className="py-28 px-6 md:px-12 max-w-7xl mx-auto">
@@ -414,16 +468,14 @@ function MapSection() {
         </p>
       </div>
 
-      {/* Route filter */}
       <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
         {routes.map((r) => {
-          const color = r === "all" ? "#C9A84C"
-            : MAP_POINTS.find((p) => p.route === r)?.color ?? "#C9A84C";
+          const color = r === "all" ? "#C9A84C" : MAP_POINTS.find((p) => p.route === r)?.color ?? "#C9A84C";
           const isActive = activeRoute === r;
           return (
             <button
               key={r}
-              onClick={() => { setActiveRoute(r); setActivePoint(null); setFlyTo(null); }}
+              onClick={() => { setActiveRoute(r); setActivePoint(null); }}
               className="px-4 py-2 text-xs tracking-widest uppercase transition-all duration-300"
               style={{
                 border: `1px solid ${color}${isActive ? "ff" : "44"}`,
@@ -438,7 +490,6 @@ function MapSection() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 border border-[#C9A84C]/15" style={{ height: "520px" }}>
-        {/* Sidebar */}
         <div className="border-r border-[#C9A84C]/15 overflow-y-auto" style={{ background: "rgba(10,12,16,0.95)" }}>
           {filtered.map((point) => {
             const isActive = activePoint === point.id;
@@ -446,7 +497,7 @@ function MapSection() {
               <button
                 key={point.id}
                 onClick={() => handleMarkerClick(point)}
-                className="w-full text-left p-5 border-b border-white/5 transition-all duration-300 group"
+                className="w-full text-left p-5 border-b border-white/5 transition-all duration-300"
                 style={{ background: isActive ? `${point.color}11` : "transparent" }}
               >
                 <div className="flex items-start gap-3">
@@ -455,16 +506,13 @@ function MapSection() {
                     style={{ background: point.color, boxShadow: isActive ? `0 0 8px ${point.color}` : "none" }}
                   />
                   <div>
-                    <p className="font-cormorant text-lg leading-tight"
-                      style={{ color: isActive ? point.color : "#E8C97A" }}>
+                    <p className="font-cormorant text-lg leading-tight" style={{ color: isActive ? point.color : "#E8C97A" }}>
                       {point.name}
                     </p>
-                    <p className="text-[#9A8A6A] text-xs mt-0.5 tracking-wider" style={{ color: `${point.color}99` }}>
+                    <p className="text-xs mt-0.5 tracking-wider" style={{ color: `${point.color}99` }}>
                       {point.route}
                     </p>
-                    {isActive && (
-                      <p className="text-[#9A8A6A] text-xs mt-2 leading-relaxed">{point.desc}</p>
-                    )}
+                    {isActive && <p className="text-[#9A8A6A] text-xs mt-2 leading-relaxed">{point.desc}</p>}
                   </div>
                 </div>
               </button>
@@ -472,54 +520,8 @@ function MapSection() {
           })}
         </div>
 
-        {/* Map */}
         <div className="lg:col-span-2 relative">
-          <MapContainer
-            center={[58, 38]}
-            zoom={4}
-            style={{ width: "100%", height: "100%" }}
-            zoomControl={false}
-            attributionControl={false}
-          >
-            <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            />
-            {flyTo && <FlyToMarker coords={flyTo} />}
-            {filtered.map((point) => (
-              <Marker
-                key={point.id}
-                position={point.coords}
-                icon={createCustomIcon(point.color)}
-                eventHandlers={{ click: () => handleMarkerClick(point) }}
-              >
-                <Popup className="dark-popup">
-                  <div style={{
-                    background: "#0E1015",
-                    border: `1px solid ${point.color}55`,
-                    padding: "12px 16px",
-                    minWidth: "200px",
-                    fontFamily: "'Golos Text', sans-serif",
-                  }}>
-                    <p style={{ fontFamily: "'Cormorant', serif", fontSize: "18px", color: point.color, marginBottom: "4px" }}>
-                      {point.name}
-                    </p>
-                    <p style={{ fontSize: "11px", color: "#9A8A6A", marginBottom: "8px", letterSpacing: "0.1em" }}>
-                      {point.route}
-                    </p>
-                    <p style={{ fontSize: "12px", color: "#B0A080", lineHeight: "1.5", marginBottom: "10px" }}>
-                      {point.desc}
-                    </p>
-                    <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "8px" }}>
-                      <span style={{ fontSize: "12px", color: "#9A8A6A" }}>{point.days}</span>
-                      <span style={{ fontSize: "14px", color: point.color, fontFamily: "'Cormorant', serif" }}>{point.price}</span>
-                    </div>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
-
-          {/* Map overlay hint */}
+          <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />
           {!activePoint && (
             <div className="absolute bottom-4 right-4 z-[1000] text-xs text-[#9A8A6A] bg-[#0A0C10]/80 px-3 py-2 border border-[#C9A84C]/15 flex items-center gap-2">
               <Icon name="MousePointer" size={12} className="text-[#C9A84C]" />
