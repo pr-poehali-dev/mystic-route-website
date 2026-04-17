@@ -182,6 +182,24 @@
   animation: glowPulse 3s ease-in-out infinite;
 }
 
+/* Leaflet dark popup override */
+.leaflet-popup-content-wrapper {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+.leaflet-popup-content {
+  margin: 0 !important;
+}
+.leaflet-popup-tip-container {
+  display: none !important;
+}
+.leaflet-container {
+  background: #0a0c10 !important;
+}
+
 /* Stagger delays */
 .delay-100 {
   animation-delay: 0.1s;

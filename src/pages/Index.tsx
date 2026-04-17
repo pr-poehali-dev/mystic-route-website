@@ -1,13 +1,110 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 
 const HERO_IMG = "https://cdn.poehali.dev/projects/7cb8a5ae-3c5d-4311-9153-67b286eadf9c/files/ea0d1004-b3e7-434a-b336-226546309558.jpg";
 const FOREST_IMG = "https://cdn.poehali.dev/projects/7cb8a5ae-3c5d-4311-9153-67b286eadf9c/files/261b6a01-8c9a-40a0-b00a-0cce4565159c.jpg";
 const MANSION_IMG = "https://cdn.poehali.dev/projects/7cb8a5ae-3c5d-4311-9153-67b286eadf9c/files/a6653169-f39f-4ecc-ab3f-17ee4a40f437.jpg";
 
+// Fix default leaflet icon paths
+delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
+
+const MAP_POINTS = [
+  {
+    id: 1,
+    name: "Псковский кром",
+    route: "Путь теней",
+    desc: "Средневековая крепость с тёмной историей. Ночные экскурсии в старинные подземелья.",
+    coords: [57.819, 28.332] as [number, number],
+    color: "#C9A84C",
+    days: "7 дней",
+    price: "от 45 000 ₽",
+  },
+  {
+    id: 2,
+    name: "Кижский погост",
+    route: "Северная мистерия",
+    desc: "Деревянные церкви на острове посреди карельского озера. Место силы и тишины.",
+    coords: [62.065, 35.225] as [number, number],
+    color: "#6B8FA8",
+    days: "10 дней",
+    price: "от 78 000 ₽",
+  },
+  {
+    id: 3,
+    name: "Мангуп-Кале",
+    route: "Крымские тайны",
+    desc: "Пещерный город на вершине горного плато. Последний оплот готского княжества.",
+    coords: [44.593, 33.801] as [number, number],
+    color: "#8F6BAA",
+    days: "5 дней",
+    price: "от 32 000 ₽",
+  },
+  {
+    id: 4,
+    name: "Усадьба Марьино",
+    route: "Путь теней",
+    desc: "Заброшенная дворянская усадьба XIX века. Призраки прошлого живут здесь до сих пор.",
+    coords: [51.72, 36.18] as [number, number],
+    color: "#C9A84C",
+    days: "7 дней",
+    price: "от 45 000 ₽",
+  },
+  {
+    id: 5,
+    name: "Соловецкий монастырь",
+    route: "Северная мистерия",
+    desc: "Суровые острова Белого моря. Монастырь с многовековой историей и тайными лабиринтами.",
+    coords: [65.017, 35.727] as [number, number],
+    color: "#6B8FA8",
+    days: "10 дней",
+    price: "от 78 000 ₽",
+  },
+  {
+    id: 6,
+    name: "Судакская крепость",
+    route: "Крымские тайны",
+    desc: "Генуэзская цитадель на скале над морем. Башни, хранящие секреты средиземноморских торговцев.",
+    coords: [44.847, 34.969] as [number, number],
+    color: "#8F6BAA",
+    days: "5 дней",
+    price: "от 32 000 ₽",
+  },
+];
+
+function createCustomIcon(color: string) {
+  return L.divIcon({
+    className: "",
+    html: `<div style="
+      width: 14px; height: 14px;
+      background: ${color};
+      border: 2px solid rgba(255,255,255,0.4);
+      border-radius: 50%;
+      box-shadow: 0 0 12px ${color}, 0 0 24px ${color}55;
+      cursor: pointer;
+    "></div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
+}
+
+function FlyToMarker({ coords }: { coords: [number, number] }) {
+  const map = useMap();
+  map.flyTo(coords, 7, { duration: 1.2 });
+  return null;
+}
+
 const NAV_ITEMS = [
   { label: "О местах", href: "#places" },
   { label: "Маршруты", href: "#routes" },
+  { label: "Карта", href: "#map" },
   { label: "Галерея", href: "#gallery" },
   { label: "Отзывы", href: "#reviews" },
   { label: "Контакты", href: "#contacts" },
@@ -99,6 +196,163 @@ const REVIEWS = [
     stars: 5,
   },
 ];
+
+function MapSection() {
+  const [activePoint, setActivePoint] = useState<number | null>(null);
+  const [flyTo, setFlyTo] = useState<[number, number] | null>(null);
+  const [activeRoute, setActiveRoute] = useState<string>("all");
+
+  const filtered = activeRoute === "all"
+    ? MAP_POINTS
+    : MAP_POINTS.filter((p) => p.route === activeRoute);
+
+  const routes = ["all", ...Array.from(new Set(MAP_POINTS.map((p) => p.route)))];
+
+  function handleMarkerClick(point: typeof MAP_POINTS[0]) {
+    setActivePoint(point.id);
+    setFlyTo(point.coords);
+  }
+
+  const selected = MAP_POINTS.find((p) => p.id === activePoint);
+
+  return (
+    <section id="map" className="py-28 px-6 md:px-12 max-w-7xl mx-auto">
+      <div className="text-center mb-20">
+        <p className="text-[#C9A84C] text-xs tracking-[0.4em] uppercase mb-4">✦ Где мы бываем ✦</p>
+        <h2 className="section-title text-5xl md:text-6xl text-foreground mb-6">Карта маршрутов</h2>
+        <div className="gold-line max-w-24 mx-auto" />
+        <p className="text-[#9A8A6A] mt-8 max-w-lg mx-auto text-sm leading-relaxed">
+          Нажмите на метку, чтобы узнать подробности о месте
+        </p>
+      </div>
+
+      {/* Route filter */}
+      <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
+        {routes.map((r) => {
+          const color = r === "all" ? "#C9A84C"
+            : MAP_POINTS.find((p) => p.route === r)?.color ?? "#C9A84C";
+          const isActive = activeRoute === r;
+          return (
+            <button
+              key={r}
+              onClick={() => { setActiveRoute(r); setActivePoint(null); setFlyTo(null); }}
+              className="px-4 py-2 text-xs tracking-widest uppercase transition-all duration-300"
+              style={{
+                border: `1px solid ${color}${isActive ? "ff" : "44"}`,
+                color: isActive ? "#0A0C10" : color,
+                background: isActive ? color : "transparent",
+              }}
+            >
+              {r === "all" ? "Все маршруты" : r}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 border border-[#C9A84C]/15" style={{ height: "520px" }}>
+        {/* Sidebar */}
+        <div className="border-r border-[#C9A84C]/15 overflow-y-auto" style={{ background: "rgba(10,12,16,0.95)" }}>
+          {filtered.map((point) => {
+            const isActive = activePoint === point.id;
+            return (
+              <button
+                key={point.id}
+                onClick={() => handleMarkerClick(point)}
+                className="w-full text-left p-5 border-b border-white/5 transition-all duration-300 group"
+                style={{ background: isActive ? `${point.color}11` : "transparent" }}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5"
+                    style={{ background: point.color, boxShadow: isActive ? `0 0 8px ${point.color}` : "none" }}
+                  />
+                  <div>
+                    <p className="font-cormorant text-lg leading-tight"
+                      style={{ color: isActive ? point.color : "#E8C97A" }}>
+                      {point.name}
+                    </p>
+                    <p className="text-[#9A8A6A] text-xs mt-0.5 tracking-wider" style={{ color: `${point.color}99` }}>
+                      {point.route}
+                    </p>
+                    {isActive && (
+                      <p className="text-[#9A8A6A] text-xs mt-2 leading-relaxed">{point.desc}</p>
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Map */}
+        <div className="lg:col-span-2 relative">
+          <MapContainer
+            center={[58, 38]}
+            zoom={4}
+            style={{ width: "100%", height: "100%" }}
+            zoomControl={false}
+            attributionControl={false}
+          >
+            <TileLayer
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            />
+            {flyTo && <FlyToMarker coords={flyTo} />}
+            {filtered.map((point) => (
+              <Marker
+                key={point.id}
+                position={point.coords}
+                icon={createCustomIcon(point.color)}
+                eventHandlers={{ click: () => handleMarkerClick(point) }}
+              >
+                <Popup className="dark-popup">
+                  <div style={{
+                    background: "#0E1015",
+                    border: `1px solid ${point.color}55`,
+                    padding: "12px 16px",
+                    minWidth: "200px",
+                    fontFamily: "'Golos Text', sans-serif",
+                  }}>
+                    <p style={{ fontFamily: "'Cormorant', serif", fontSize: "18px", color: point.color, marginBottom: "4px" }}>
+                      {point.name}
+                    </p>
+                    <p style={{ fontSize: "11px", color: "#9A8A6A", marginBottom: "8px", letterSpacing: "0.1em" }}>
+                      {point.route}
+                    </p>
+                    <p style={{ fontSize: "12px", color: "#B0A080", lineHeight: "1.5", marginBottom: "10px" }}>
+                      {point.desc}
+                    </p>
+                    <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "8px" }}>
+                      <span style={{ fontSize: "12px", color: "#9A8A6A" }}>{point.days}</span>
+                      <span style={{ fontSize: "14px", color: point.color, fontFamily: "'Cormorant', serif" }}>{point.price}</span>
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+          </MapContainer>
+
+          {/* Map overlay hint */}
+          {!activePoint && (
+            <div className="absolute bottom-4 right-4 z-[1000] text-xs text-[#9A8A6A] bg-[#0A0C10]/80 px-3 py-2 border border-[#C9A84C]/15 flex items-center gap-2">
+              <Icon name="MousePointer" size={12} className="text-[#C9A84C]" />
+              Нажмите на метку
+            </div>
+          )}
+          {selected && (
+            <div className="absolute bottom-4 left-4 z-[1000] text-xs bg-[#0A0C10]/90 px-4 py-3 border flex items-center gap-3"
+              style={{ borderColor: `${selected.color}44` }}>
+              <div className="w-2 h-2 rounded-full" style={{ background: selected.color }} />
+              <span className="text-[#E8C97A] font-cormorant text-base">{selected.name}</span>
+              <a href="#booking" className="ml-2 text-[#C9A84C] tracking-wider uppercase hover:underline">
+                Забронировать →
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export default function Index() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -285,6 +539,11 @@ export default function Index() {
           </a>
         </div>
       </section>
+
+      <div className="gold-line opacity-20" />
+
+      {/* КАРТА */}
+      <MapSection />
 
       <div className="gold-line opacity-20" />
 
