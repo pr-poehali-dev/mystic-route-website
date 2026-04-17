@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
@@ -196,6 +196,194 @@ const REVIEWS = [
     stars: 5,
   },
 ];
+
+// ── Hero particles & parallax ──────────────────────────────────────────────
+
+interface Particle {
+  id: number;
+  x: number;
+  y: number;
+  size: number;
+  opacity: number;
+  duration: number;
+  delay: number;
+  drift: number;
+}
+
+function useParticles(count: number): Particle[] {
+  return useRef<Particle[]>(
+    Array.from({ length: count }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 2 + 0.5,
+      opacity: Math.random() * 0.6 + 0.1,
+      duration: Math.random() * 10 + 8,
+      delay: Math.random() * 8,
+      drift: (Math.random() - 0.5) * 40,
+    }))
+  ).current;
+}
+
+function HeroParticles() {
+  const particles = useParticles(60);
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none z-[2]">
+      {particles.map((p) => (
+        <div
+          key={p.id}
+          className="absolute rounded-full"
+          style={{
+            left: `${p.x}%`,
+            top: `${p.y}%`,
+            width: `${p.size}px`,
+            height: `${p.size}px`,
+            background: p.id % 5 === 0 ? "#C9A84C" : "#ffffff",
+            opacity: p.opacity,
+            animation: `particleFloat ${p.duration}s ease-in-out ${p.delay}s infinite`,
+            "--drift": `${p.drift}px`,
+          } as React.CSSProperties}
+        />
+      ))}
+    </div>
+  );
+}
+
+function useParallax() {
+  const [offset, setOffset] = useState(0);
+  const [mouseX, setMouseX] = useState(0);
+  const [mouseY, setMouseY] = useState(0);
+
+  const onScroll = useCallback(() => {
+    setOffset(window.scrollY);
+  }, []);
+
+  const onMouse = useCallback((e: MouseEvent) => {
+    const cx = (e.clientX / window.innerWidth - 0.5) * 2;
+    const cy = (e.clientY / window.innerHeight - 0.5) * 2;
+    setMouseX(cx);
+    setMouseY(cy);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("mousemove", onMouse, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("mousemove", onMouse);
+    };
+  }, [onScroll, onMouse]);
+
+  return { offset, mouseX, mouseY };
+}
+
+function HeroSection() {
+  const { offset, mouseX, mouseY } = useParallax();
+
+  const bgY = offset * 0.35;
+  const bgX = mouseX * 18;
+  const bgYm = mouseY * 10;
+
+  const fogY = offset * 0.15;
+  const fog2Y = offset * 0.25;
+
+  return (
+    <section id="hero" className="relative h-screen flex items-center justify-center overflow-hidden">
+      {/* Parallax background */}
+      <div
+        className="absolute inset-[-8%] bg-cover bg-center will-change-transform"
+        style={{
+          backgroundImage: `url(${HERO_IMG})`,
+          transform: `translate(${bgX}px, ${bgYm - bgY}px) scale(1.15)`,
+          transition: "transform 0.1s linear",
+        }}
+      />
+
+      {/* Deep gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0A0C10]/60 via-[#0A0C10]/30 to-[#0A0C10] z-[1]" />
+
+      {/* Radial vignette */}
+      <div
+        className="absolute inset-0 z-[1]"
+        style={{
+          background: "radial-gradient(ellipse 80% 60% at 50% 40%, transparent 0%, rgba(10,12,16,0.55) 100%)",
+        }}
+      />
+
+      {/* Fog layers with parallax */}
+      <div
+        className="fog-overlay absolute inset-0 z-[2]"
+        style={{ transform: `translateY(${fogY}px)`, opacity: 0.7 }}
+      />
+      <div
+        className="absolute inset-0 z-[2]"
+        style={{
+          background: "radial-gradient(ellipse 120% 40% at 50% 100%, rgba(201,168,76,0.04) 0%, transparent 70%)",
+          transform: `translateY(${fog2Y}px)`,
+        }}
+      />
+
+      {/* Animated aurora streaks */}
+      <div className="absolute inset-0 z-[2] overflow-hidden pointer-events-none">
+        <div className="aurora-streak aurora-1" />
+        <div className="aurora-streak aurora-2" />
+        <div className="aurora-streak aurora-3" />
+      </div>
+
+      {/* Particles */}
+      <HeroParticles />
+
+      {/* Content */}
+      <div
+        className="relative z-10 text-center px-6 max-w-4xl mx-auto"
+        style={{
+          transform: `translateY(${offset * 0.18}px)`,
+          opacity: Math.max(0, 1 - offset / 500),
+        }}
+      >
+        <p className="text-[#C9A84C] text-xs tracking-[0.4em] uppercase mb-6 animate-fade-in opacity-0 delay-100">
+          ✦ Мистические путешествия по России ✦
+        </p>
+        <h1
+          className="font-cormorant text-6xl md:text-8xl font-light leading-none mb-6 animate-fade-in-up opacity-0 delay-200"
+          style={{ textShadow: "0 0 80px rgba(201,168,76,0.4), 0 0 160px rgba(201,168,76,0.15)" }}
+        >
+          Туда, где<br />
+          <em className="gold-shimmer not-italic">время замерло</em>
+        </h1>
+        <p className="text-[#9A8A6A] text-lg font-light leading-relaxed mb-10 max-w-2xl mx-auto animate-fade-in-up opacity-0 delay-300">
+          Мы открываем места, о которых не пишут в путеводителях. Заброшенные усадьбы,
+          древние леса и тайные тропы — для тех, кто ищет настоящее.
+        </p>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up opacity-0 delay-400">
+          <a
+            href="#routes"
+            className="px-8 py-4 bg-[#C9A84C] text-[#0A0C10] text-sm tracking-widest uppercase font-medium hover:bg-[#E8C97A] transition-all duration-300 glow-border"
+          >
+            Смотреть маршруты
+          </a>
+          <a
+            href="#places"
+            className="px-8 py-4 border border-[#9A8A6A]/50 text-[#9A8A6A] text-sm tracking-widest uppercase hover:border-[#C9A84C] hover:text-[#C9A84C] transition-all duration-300"
+          >
+            Узнать больше
+          </a>
+        </div>
+      </div>
+
+      {/* Scroll indicator */}
+      <div
+        className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-float z-10"
+        style={{ opacity: Math.max(0, 1 - offset / 200) }}
+      >
+        <span className="text-[#9A8A6A] text-xs tracking-widest uppercase">Листайте</span>
+        <Icon name="ChevronDown" size={16} className="text-[#C9A84C]" />
+      </div>
+    </section>
+  );
+}
+
+// ── Map section ────────────────────────────────────────────────────────────
 
 function MapSection() {
   const [activePoint, setActivePoint] = useState<number | null>(null);
@@ -408,42 +596,7 @@ export default function Index() {
       )}
 
       {/* HERO */}
-      <section id="hero" className="relative h-screen flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${HERO_IMG})` }} />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0A0C10]/70 via-[#0A0C10]/40 to-[#0A0C10]" />
-        <div className="fog-overlay absolute inset-0" />
-
-        <div className="relative z-10 text-center px-6 max-w-4xl mx-auto">
-          <p className="text-[#C9A84C] text-xs tracking-[0.4em] uppercase mb-6 animate-fade-in opacity-0 delay-100">
-            ✦ Мистические путешествия по России ✦
-          </p>
-          <h1 className="font-cormorant text-6xl md:text-8xl font-light leading-none mb-6 animate-fade-in-up opacity-0 delay-200"
-            style={{ textShadow: "0 0 60px rgba(201,168,76,0.3)" }}>
-            Туда, где<br />
-            <em className="gold-shimmer not-italic">время замерло</em>
-          </h1>
-          <p className="text-[#9A8A6A] text-lg font-light leading-relaxed mb-10 max-w-2xl mx-auto animate-fade-in-up opacity-0 delay-300">
-            Мы открываем места, о которых не пишут в путеводителях. Заброшенные усадьбы,
-            древние леса и тайные тропы — для тех, кто ищет настоящее.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up opacity-0 delay-400">
-            <a href="#routes"
-              className="px-8 py-4 bg-[#C9A84C] text-[#0A0C10] text-sm tracking-widest uppercase font-medium hover:bg-[#E8C97A] transition-all duration-300 glow-border">
-              Смотреть маршруты
-            </a>
-            <a href="#places"
-              className="px-8 py-4 border border-[#9A8A6A]/50 text-[#9A8A6A] text-sm tracking-widest uppercase hover:border-[#C9A84C] hover:text-[#C9A84C] transition-all duration-300">
-              Узнать больше
-            </a>
-          </div>
-        </div>
-
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-float">
-          <span className="text-[#9A8A6A] text-xs tracking-widest uppercase">Листайте</span>
-          <Icon name="ChevronDown" size={16} className="text-[#C9A84C]" />
-        </div>
-      </section>
+      <HeroSection />
 
       {/* О МЕСТАХ */}
       <section id="places" className="py-28 px-6 md:px-12 max-w-7xl mx-auto">
