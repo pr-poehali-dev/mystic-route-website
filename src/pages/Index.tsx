@@ -78,21 +78,7 @@ const MAP_POINTS = [
   },
 ];
 
-function createCustomIcon(color: string) {
-  return L.divIcon({
-    className: "",
-    html: `<div style="
-      width: 14px; height: 14px;
-      background: ${color};
-      border: 2px solid rgba(255,255,255,0.4);
-      border-radius: 50%;
-      box-shadow: 0 0 12px ${color}, 0 0 24px ${color}55;
-      cursor: pointer;
-    "></div>`,
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
-  });
-}
+
 
 function FlyToMarker({ coords }: { coords: [number, number] }) {
   const map = useMap();
